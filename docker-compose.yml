@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: cesports
+      POSTGRES_USER: cesports
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-db-password}
+    volumes:
+      - cesports-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cesports -d cesports"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/cesports
+      SPRING_DATASOURCE_USERNAME: cesports
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-db-password}
+      CESPORTS_ADMIN_USERNAME: ${CESPORTS_ADMIN_USERNAME:-admin}
+      CESPORTS_ADMIN_PASSWORD: ${CESPORTS_ADMIN_PASSWORD:-change-me-now-please}
+      CESPORTS_JWT_SECRET: ${CESPORTS_JWT_SECRET:-local-development-only-secret-change-before-deploy-32chars}
+      CESPORTS_CORS_ORIGIN: ${CESPORTS_CORS_ORIGIN:-http://localhost:5173}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: .
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+
+volumes:
+  cesports-data:
